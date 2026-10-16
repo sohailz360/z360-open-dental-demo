@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Z360 × Open Dental: end-to-end demo</title>
+<style>
+:root{
+  --bg:#101215; --s1:#181b20; --s2:#1f2329; --s3:#2a2f37; --line:#343a44;
+  --t1:#f0efec; --t2:#c3c2b7; --t3:#8d8c85;
+  --z:#2fb4e9;      /* Z360 */
+  --od:#1fae79;     /* Open Dental */
+  --mcp:#9085e9;    /* our MCP server */
+  --agent:#d55181;  /* agent layer */
+  --pr:#c98500;     /* practice office */
+  /* categorical (dark steps) for tool domains */
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#9085e9;
+  /* status */
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-snap-type:y mandatory;scroll-behavior:smooth}
+body{background:var(--bg);color:var(--t1);font:16px/1.45 Inter,"Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.86em}
+code{background:var(--s3);padding:1px 6px;border-radius:5px;color:var(--t1)}
+
+/* ---------- slide frame ---------- */
+.slide{min-height:100vh;scroll-snap-align:start;padding:56px 72px 64px;display:flex;flex-direction:column;position:relative;border-bottom:1px solid #1a1d22}
+.slide>.body{flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px;max-width:1660px;width:100%;margin:0 auto}
+.kicker{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--z);font-weight:700}
+h1{font-size:64px;line-height:1.05;letter-spacing:-.02em;font-weight:800}
+h2{font-size:40px;line-height:1.1;letter-spacing:-.015em;font-weight:780}
+h3{font-size:18px;font-weight:700}
+.sub{font-size:20px;color:var(--t2);max-width:1100px}
+.muted{color:var(--t3)} .t2{color:var(--t2)}
+.num{position:absolute;right:28px;bottom:20px;color:var(--t3);font-size:13px}
+.row{display:flex;gap:18px;flex-wrap:wrap}
+.grid{display:grid;gap:18px}
+.g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)} .g5{grid-template-columns:repeat(5,minmax(0,1fr))} .g6{grid-template-columns:repeat(6,minmax(0,1fr))}
+.card{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.card.tight{padding:12px 14px}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--s2);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--t2)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.tag{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:6px;background:var(--s3);color:var(--t2)}
+ul.clean{list-style:none;display:flex;flex-direction:column;gap:8px}
+ul.clean li{display:flex;gap:10px;align-items:flex-start}
+ul.clean li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--t3);margin-top:9px;flex:none}
+
+/* ---------- nav ---------- */
+#progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--z),var(--od));z-index:50;width:0;transition:width .25s}
+#dots{position:fixed;right:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:7px;z-index:40}
+#dots a{width:8px;height:8px;border-radius:50%;background:#3a404a;display:block;position:relative}
+#dots a.on{background:var(--z);transform:scale(1.35)}
+#dots a span{position:absolute;right:16px;top:-6px;white-space:nowrap;font-size:12px;background:var(--s2);border:1px solid var(--line);padding:2px 8px;border-radius:6px;color:var(--t2);opacity:0;pointer-events:none;transition:opacity .15s}
+#dots a:hover span{opacity:1}
+#hint{position:fixed;left:18px;bottom:14px;font-size:12px;color:var(--t3);z-index:40}
+
+/* ---------- title ---------- */
+.hero{background:radial-gradient(1200px 600px at 80% 10%,rgba(47,180,233,.13),transparent 60%),radial-gradient(900px 500px at 10% 90%,rgba(31,174,121,.12),transparent 60%)}
+.kpi{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.kpi b{display:block;font-size:46px;line-height:1;font-weight:800;letter-spacing:-.02em}
+.kpi span{color:var(--t2);font-size:14px}
+.logo-x{display:flex;align-items:center;gap:18px;font-size:22px;font-weight:700}
+.logo-x .box{padding:8px 16px;border-radius:10px;border:1px solid var(--line);background:var(--s2)}
+
+/* ---------- agenda ---------- */
+.agenda{counter-reset:a;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.agenda div{counter-increment:a;background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:18px;font-weight:650;font-size:18px;cursor:pointer}
+.agenda div:hover{border-color:var(--z)}
+.agenda div::before{content:counter(a,decimal-leading-zero);display:block;color:var(--z);font-size:28px;font-weight:800;margin-bottom:6px}
+.agenda div small{display:block;color:var(--t3);font-weight:400;font-size:13px;margin-top:4px}
+
+/* ---------- architecture ---------- */
+.arch{display:grid;grid-template-columns:150px 30px 1fr 30px 220px 30px 210px;align-items:stretch;gap:0}
+.zone{border:1.5px dashed var(--line);border-radius:16px;padding:14px;position:relative}
+.zone>.zl{position:absolute;top:-11px;left:14px;background:var(--bg);padding:0 8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.node{background:var(--s1);border:1px solid var(--line);border-left:4px solid var(--c,var(--t3));border-radius:12px;padding:12px 14px}
+.node h4{font-size:15px;font-weight:750;margin-bottom:4px}
+.node p{font-size:13px;color:var(--t2)}
+.node .mono{color:var(--t3);font-size:12px;word-break:break-all}
+.arrow{display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:22px}
+.vflow{display:flex;flex-direction:column;gap:10px}
+.vflow .down{text-align:center;color:var(--t3);font-size:16px;line-height:1}
+
+/* ---------- sequence diagram ---------- */
+.seq svg{width:100%;height:auto;display:block}
+.seq text{font-family:Inter,"Segoe UI",system-ui,sans-serif}
+
+/* ---------- MCP internals ---------- */
+.pipe{display:flex;align-items:stretch;gap:0}
+.pipe .stage{flex:1;background:var(--s1);border:1px solid var(--line);border-top:4px solid var(--c,var(--mcp));border-radius:12px;padding:14px}
+.pipe .stage h4{font-size:15px;margin-bottom:6px}
+.pipe .stage p{font-size:13px;color:var(--t2)}
+.pipe .chev{width:28px;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:20px}
+
+/* ---------- tools map ---------- */
+.dom{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:14px;border-top:4px solid var(--c)}
+.dom h4{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;margin-bottom:10px}
+.dom h4 b{font-size:26px;color:var(--t1)}
+.tool{display:flex;align-items:center;justify-content:space-between;gap:6px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;padding:6px 8px;border-radius:8px;background:var(--s2);margin-bottom:6px;color:var(--t1)}
+.tool span:first-child{overflow-wrap:anywhere;min-width:0}
+.tool .w{font-family:Inter,system-ui,sans-serif;font-size:10px;font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:5px;background:rgba(240,239,236,.1);color:var(--t1)}
+.tool.r .w{background:transparent;color:var(--t3);border:1px solid var(--line)}
+.stackbar{display:flex;height:34px;border-radius:8px;overflow:hidden;gap:2px}
+.stackbar div{display:flex;align-items:center;padding-left:10px;font-size:13px;font-weight:700;color:#fff;position:relative}
+
+/* ---------- state machine ---------- */
+.sm svg{width:100%;height:auto}
+
+/* ---------- skills ---------- */
+.tree{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:14px;line-height:1.9}
+.tree .f{color:var(--t1)} .tree .d{color:var(--z);font-weight:700} .tree .c{color:var(--t3)}
+.chevs{display:flex;gap:4px}
+.chevs div{flex:1;background:var(--s2);padding:14px 10px 14px 26px;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%,16px 50%);font-weight:700;font-size:15px;text-align:center}
+.chevs div:first-child{clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%);padding-left:14px}
+.chevs div small{display:block;font-weight:400;color:var(--t2);font-size:12px;margin-top:2px}
+
+/* ---------- pipelines ---------- */
+.flow{display:flex;align-items:center;gap:0;flex-wrap:nowrap}
+.flow .fb{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:12px;flex:1;min-width:0;border-top:4px solid var(--c,var(--t3))}
+.flow .fb h4{font-size:14px;margin-bottom:4px}
+.flow .fb p{font-size:12.5px;color:var(--t2)}
+.flow .fa{width:26px;text-align:center;color:var(--t3);flex:none}
+.pl{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.pl h4{font-size:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.pl dl{display:grid;grid-template-columns:70px 1fr;gap:5px 10px;font-size:13px}
+.pl dt{color:var(--t3);font-weight:600}
+.pl dd{color:var(--t2)}
+
+/* timeline day */
+.day{position:relative;height:190px;margin:6px 10px 0}
+.day .axis{position:absolute;left:0;right:0;top:92px;height:2px;background:var(--line)}
+.day .tick{position:absolute;top:98px;font-size:12px;color:var(--t3);transform:translateX(-50%)}
+.day .ev{position:absolute;transform:translateX(-50%);text-align:center;width:150px}
+.day .ev .m{width:14px;height:14px;border-radius:50%;margin:0 auto;border:3px solid var(--bg);box-shadow:0 0 0 2px var(--c)}
+.day .ev .lb{font-size:13px;font-weight:700;margin-bottom:6px}
+.day .ev .lb small{display:block;font-weight:400;color:var(--t3);font-size:11.5px}
+.day .ev:hover .tip{opacity:1}
+.tip{position:absolute;bottom:110%;left:50%;transform:translateX(-50%);background:var(--s3);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--t1);width:230px;opacity:0;pointer-events:none;transition:opacity .15s;z-index:5}
+
+/* funnel */
+.funnel{display:flex;flex-direction:column;gap:6px;align-items:center}
+.funnel div{background:var(--s2);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:14px;display:flex;gap:12px;align-items:center}
+.funnel div b{color:var(--z);font-size:13px;width:18px}
+
+/* ---------- proof ---------- */
+.shot{border-radius:12px;border:1px solid var(--line);overflow:hidden;background:#000;cursor:zoom-in;position:relative}
+.shot img{display:block;width:100%;height:auto}
+.shot .cap{position:absolute;left:10px;top:10px;background:rgba(16,18,21,.88);border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700}
+.ev-list{display:flex;flex-direction:column;gap:0}
+.ev-i{display:grid;grid-template-columns:22px 1fr;gap:12px;position:relative;padding-bottom:14px}
+.ev-i::before{content:"";position:absolute;left:10px;top:20px;bottom:0;width:2px;background:var(--line)}
+.ev-i:last-child::before{display:none}
+.ev-i .m{width:22px;height:22px;border-radius:50%;background:var(--s2);border:2px solid var(--c,var(--good));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--t1)}
+.ev-i h5{font-size:14.5px;font-weight:700}
+.ev-i p{font-size:13px;color:var(--t2)}
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:100;cursor:zoom-out;padding:24px}
+#lightbox img{max-width:100%;max-height:100%;border-radius:8px}
+
+/* ---------- compare ---------- */
+.vs{display:grid;grid-template-columns:1fr 60px 1fr;gap:0;align-items:stretch}
+.vs .mid{display:flex;align-items:center;justify-content:center;color:var(--t3);font-weight:800}
+table.cmp{width:100%;border-collapse:collapse;font-size:14.5px}
+table.cmp th,table.cmp td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+table.cmp th{color:var(--t3);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+table.cmp td:first-child{color:var(--t2);font-weight:600}
+
+/* ---------- roadmap ---------- */
+.road{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;position:relative}
+.road .ph{background:var(--s1);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;position:relative}
+.road .ph .n{width:30px;height:30px;border-radius:50%;background:var(--c,var(--z));color:#0b0b0b;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px}
+.road .ph h4{font-size:15px}
+.road .ph .who{font-size:12px;color:var(--t3);font-weight:600}
+.road .ph ul{font-size:12.5px;color:var(--t2);gap:5px}
+.road .ph ul li::before{margin-top:7px;width:5px;height:5px}
+.gate{font-size:11.5px;font-weight:700;color:var(--warn);border-top:1px dashed var(--line);padding-top:8px;margin-top:auto}
+
+/* ---------- gaps ---------- */
+.gap{display:grid;grid-template-columns:120px 1fr 1.1fr;gap:16px;align-items:start;background:var(--s1);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:12px;padding:12px 16px}
+.gap .st{font-size:12px;font-weight:800;letter-spacing:.04em;display:flex;align-items:center;gap:6px;color:var(--t1)}
+.gap h4{font-size:15px;margin-bottom:2px}
+.gap p{font-size:13px;color:var(--t2)}
+.gap .fix{font-size:13px;color:var(--t2)}
+.gap .fix b{color:var(--t1)}
+
+/* ---------- next ---------- */
+.tl{display:flex;gap:0;align-items:flex-start}
+.tl .tp{flex:1;position:relative;padding-top:30px}
+.tl .tp::before{content:"";position:absolute;top:9px;left:0;right:0;height:2px;background:var(--line)}
+.tl .tp::after{content:"";position:absolute;top:2px;left:0;width:16px;height:16px;border-radius:50%;background:var(--c,var(--t3));border:3px solid var(--bg)}
+.tl .tp h4{font-size:15px;padding-right:16px}
+.tl .tp .d{font-size:12px;color:var(--z);font-weight:700;margin-bottom:4px}
+.tl .tp p{font-size:13px;color:var(--t2);padding-right:16px;margin-top:4px}
+
+
+/* ---------- limits ---------- */
+.chain{display:flex;align-items:stretch;gap:0}
+.chain .ck{flex:1;background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:12px 14px;border-top:4px solid var(--c)}
+.chain .ck h4{font-size:15px;margin-bottom:4px}
+.chain .ck p{font-size:12.5px;color:var(--t2)}
+.chain .ck .ok{font-size:12px;font-weight:700;color:var(--good)}
+.chain .ck.bad{background:rgba(250,178,25,.07);border-color:rgba(250,178,25,.6);border-width:2px;border-top-width:4px}
+.chain .ck.bad .ok{color:var(--warn)}
+.chain .ca{width:28px;display:flex;align-items:center;justify-content:center;color:var(--t3)}
+.lcol{display:flex;flex-direction:column;gap:10px}
+.lcol>h3{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)}
+.lim{background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+.lim b{display:block;font-size:14px;margin-bottom:3px}
+.lim p{font-size:12.5px;color:var(--t2)}
+.st-tag{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;margin-top:7px;color:var(--t1)}
+
+@media (max-width:1200px){.slide{padding:40px 32px}.arch{grid-template-columns:1fr;gap:12px}.arch .arrow{transform:rotate(90deg)}.road{grid-template-columns:repeat(3,1fr)}.g5,.g6{grid-template-columns:repeat(3,1fr)}h1{font-size:46px}}
+@media print{html{scroll-snap-type:none}.slide{page-break-after:always;min-height:auto}#dots,#hint,#progress{display:none}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<nav id="dots"></nav>
+<div id="hint">↑ ↓ / Space to move · F fullscreen · click a screenshot to zoom</div>
+<div id="lightbox"><img alt=""></div>
+
+<!-- =================== 1. TITLE =================== -->
+<section class="slide hero" data-title="Title">
+ <div class="body">
+  <div class="logo-x"><span class="box" style="color:var(--z)">Z360</span><span class="muted">×</span><span class="box" style="color:var(--od)">Open Dental</span></div>
+  <h1>An AI front desk that works<br>directly inside Open Dental</h1>
+  <p class="sub">End-to-end demo: the MCP connector, how the data flows, the dental preset, live proof from our sandbox, and the path to Feel Good Dentistry.</p>
+  <div class="grid g5" style="margin-top:10px">
+   <div class="kpi"><b style="color:var(--mcp)">24</b><span>Open Dental tools on our MCP server</span></div>
+   <div class="kpi"><b style="color:var(--z)">3</b><span>patient skills · 8 playbook files</span></div>
+   <div class="kpi"><b style="color:var(--od)">6</b><span>outreach pipelines</span></div>
+   <div class="kpi"><b style="color:var(--pr)">6</b><span>scheduled automations</span></div>
+   <div class="kpi"><b style="color:var(--good)">✓</b><span>real call + text bookings landed in Open Dental</span></div>
+  </div>
+  <div class="row" style="margin-top:6px">
+   <span class="pill"><span class="dot" style="background:var(--good)"></span>Live on Z360 staging</span>
+   <span class="pill"><span class="dot" style="background:var(--warn)"></span>Open Dental sandbox · synthetic patients only</span>
+   <span class="pill"><span class="dot" style="background:var(--t3)"></span>No FGD patient data used</span>
+   <span class="pill">Oct 16, 2026</span>
+  </div>
+ </div>
+</section>
+
+<!-- =================== 2. AGENDA =================== -->
+<section class="slide" data-title="Agenda">
+ <div class="body">
+  <div class="kicker">Agenda</div>
+  <h2>What we'll walk through</h2>
+  <div class="agenda">
+   <div data-go="built">What we built<small>Connector + dental preset</small></div>
+   <div data-go="arch">How data flows<small>Call → Z360 → MCP → Open Dental</small></div>
+   <div data-go="mcp">Inside the MCP server<small>Tools, safe writes, security</small></div>
+   <div data-go="skills">Skills, pipelines, automations<small>What the AI follows</small></div>
+   <div data-go="proof">Live proof<small>Call + text, real sandbox results</small></div>
+   <div data-go="fgd">Going live at FGD<small>Steps, gates, limits to know</small></div>
+   <div data-go="gaps">Gaps &amp; findings<small>Honest list</small></div>
+   <div data-go="next">Next steps<small>Dates &amp; owners</small></div>
+  </div>
+ </div>
+</section>
+
+<!-- =================== 3. WHAT WE BUILT =================== -->
+<section class="slide" id="built" data-title="What we built">
+ <div class="body">
+  <div class="kicker">01 · What we built</div>
+  <h2>Two reusable pieces, not a one-off for FGD</h2>
+  <div class="vs">
+   <div class="card" style="border-top:4px solid var(--mcp)">
+    <div class="row" style="justify-content:space-between;align-items:center"><h3 style="font-size:22px">1 · Open Dental connector</h3><span class="tag">integrations-mcp</span></div>
+    <p class="muted" style="margin:4px 0 14px">Our MCP server on Z360 AWS: turns the Open Dental API into safe business tools</p>
+    <div class="grid g2">
+     <div class="card tight"><b style="font-size:26px">24</b> <span class="t2">tools: 13 read · 11 write</span></div>
+     <div class="card tight"><b style="font-size:26px">1</b> <span class="t2">token per practice</span></div>
+     <div class="card tight"><span class="t2">Duplicate-safe writes (<code>operation_id</code>)</span></div>
+     <div class="card tight"><span class="t2">Private: reachable only through the gateway</span></div>
+     <div class="card tight"><span class="t2">Every AI action logged in Open Dental, tagged <code>[Z360]</code></span></div>
+     <div class="card tight"><span class="t2">Built for more integrations (Charm EHR next)</span></div>
+    </div>
+   </div>
+   <div class="mid">+</div>
+   <div class="card" style="border-top:4px solid var(--z)">
+    <div class="row" style="justify-content:space-between;align-items:center"><h3 style="font-size:22px">2 · Dental preset v3</h3><span class="tag">install package</span></div>
+    <p class="muted" style="margin:4px 0 14px">What the AI knows and does: installable per clinic, with clinic settings kept separate</p>
+    <div class="grid g2">
+     <div class="card tight"><b style="font-size:26px">3</b> <span class="t2">skills (8 files)</span></div>
+     <div class="card tight"><b style="font-size:26px">6</b> <span class="t2">pipelines</span></div>
+     <div class="card tight"><b style="font-size:26px">6</b> <span class="t2">automations (start paused)</span></div>
+     <div class="card tight"><b style="font-size:26px">11</b> <span class="t2">ticket types</span></div>
+     <div class="card tight"><span class="t2">Knowledge templates (scheduling rules, first aid…)</span></div>
+     <div class="card tight"><span class="t2">Install checks + manifest (<code>preset.json</code>)</span></div>
+    </div>
+   </div>
+  </div>
+  <div class="grid g3">
+   <div class="card" style="border-left:4px solid var(--z)"><h3>Z360 owns the conversation</h3><p class="t2">Calls, SMS, chat, tickets, pipelines</p></div>
+   <div class="card" style="border-left:4px solid var(--od)"><h3>Open Dental stays the source of truth</h3><p class="t2">Patients, appointments, recall, treatment plans</p></div>
+   <div class="card" style="border-left:4px solid var(--mcp)"><h3>Every outcome is written back</h3><p class="t2">Staff see it in Open Dental's communication log</p></div>
+  </div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 4. ARCHITECTURE =================== -->
+<section class="slide" id="arch" data-title="Architecture">
+ <div class="body">
+  <div class="kicker">02 · How data flows</div>
+  <h2>From a patient's phone to the practice's database</h2>
+  <div class="arch">
+   <div class="vflow" style="justify-content:center">
+    <div class="node" style="--c:var(--t2)"><h4>📞 Patient</h4><p>Call · SMS · web chat</p></div>
+    <div class="down">↓</div>
+    <div class="node" style="--c:var(--t3)"><h4>Telnyx</h4><p>Phone &amp; SMS carrier</p></div>
+   </div>
+   <div class="arrow">→</div>
+   <div class="zone" style="border-color:rgba(47,180,233,.5)"><span class="zl" style="color:var(--z)">Z360 on AWS</span>
+    <div class="grid g3" style="gap:12px;align-items:stretch;height:100%">
+     <div class="vflow">
+      <div class="node" style="--c:var(--z)"><h4>Z360 app</h4><p>Inbox, contacts, tickets, pipelines, automations</p></div>
+      <div class="node" style="--c:var(--z)"><h4>Skills + action catalog</h4><p>Org's skills; Open Dental tools imported as one action group</p></div>
+     </div>
+     <div class="vflow">
+      <div class="node" style="--c:var(--agent)"><h4>AI agents</h4><p>Voice AI ("Mark") on calls · Inbox agent on text · automation runs</p></div>
+      <div class="node" style="--c:var(--agent)"><h4>Gateway</h4><p><span class="mono">/execute-action</span>: runs a tool call; allows only our private MCP host</p></div>
+     </div>
+     <div class="zone" style="border-color:rgba(144,133,233,.6);margin-top:10px"><span class="zl" style="color:var(--mcp)">Private · no public URL</span>
+      <div class="node" style="--c:var(--mcp);margin-top:6px"><h4>integrations-mcp</h4><p><span class="mono">/opendental/mcp</span></p><p style="margin-top:6px">Bearer token → practice connection → customer key</p><p style="margin-top:6px">24 tools · safe writes · rate limit</p></div>
+     </div>
+    </div>
+   </div>
+   <div class="arrow">→</div>
+   <div class="zone" style="border-color:rgba(31,174,121,.5)"><span class="zl" style="color:var(--od)">Open Dental cloud</span>
+    <div class="node" style="--c:var(--od);margin-top:6px"><h4>Open Dental API</h4><p class="mono">api.opendental.com/api/v1</p><p style="margin-top:6px">Auth: Z360 developer key + the practice's customer key</p></div>
+   </div>
+   <div class="arrow">→</div>
+   <div class="zone" style="border-color:rgba(201,133,0,.55)"><span class="zl" style="color:var(--pr)">Practice office</span>
+    <div class="vflow" style="margin-top:6px">
+     <div class="node" style="--c:var(--pr)"><h4>eConnector</h4><p>Always-on service on the office Windows PC</p></div>
+     <div class="down">↓</div>
+     <div class="node" style="--c:var(--pr)"><h4>Open Dental database</h4><p>What staff see on screen</p></div>
+    </div>
+   </div>
+  </div>
+  <div class="grid g4">
+   <div class="card tight"><b>Read path</b><p class="t2" style="font-size:14px">AI asks → tool → Open Dental → structured answer back</p></div>
+   <div class="card tight"><b>Write path</b><p class="t2" style="font-size:14px">Confirm with patient → write → read back → log <code>[Z360]</code></p></div>
+   <div class="card tight"><b>Today: sandbox</b><p class="t2" style="font-size:14px">Windows VM with Open Dental 26.1 + eConnector, demo database</p></div>
+   <div class="card tight"><b>Latency</b><p class="t2" style="font-size:14px">1.6–7 s per Open Dental call (measured in sandbox)</p></div>
+  </div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 5. SEQUENCE: ONE BOOKING CALL =================== -->
+<section class="slide" data-title="One call, step by step">
+ <div class="body">
+  <div class="kicker">02 · How data flows</div>
+  <h2>One new-patient booking call, step by step</h2>
+  <div class="card seq" id="seq1" style="padding:10px 14px"></div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 6. MCP INTERNALS =================== -->
+<section class="slide" id="mcp" data-title="Inside the MCP server">
+ <div class="body">
+  <div class="kicker">03 · Inside the MCP server</div>
+  <h2>What happens to every tool call</h2>
+  <div class="pipe">
+   <div class="stage" style="--c:var(--agent)"><h4><span style="color:var(--t3)">1 ·</span> Arrives from gateway</h4><p>MCP over streamable HTTP, tool name + inputs</p></div><div class="chev">›</div>
+   <div class="stage"><h4><span style="color:var(--t3)">2 ·</span> Check token</h4><p>Bearer token matched against stored SHA-256 hashes. Wrong or unknown → 401</p></div><div class="chev">›</div>
+   <div class="stage"><h4><span style="color:var(--t3)">3 ·</span> Find the practice</h4><p>Token → connection: customer key, timezone, staff task user, rate limit</p></div><div class="chev">›</div>
+   <div class="stage"><h4><span style="color:var(--t3)">4 ·</span> Validate</h4><p>Only allowed fields and parameters; Open Dental silently ignores typos, so we don't send any</p></div><div class="chev">›</div>
+   <div class="stage" style="--c:var(--od)"><h4><span style="color:var(--t3)">5 ·</span> Call Open Dental</h4><p>Paced per practice, 60 s timeout, unknown outcomes flagged</p></div><div class="chev">›</div>
+   <div class="stage" style="--c:var(--good)"><h4><span style="color:var(--t3)">6 ·</span> Clear result</h4><p>Always an explicit status (<code>booked</code>, <code>conflict</code>, <code>practice_unreachable</code>…) + what to do next</p></div>
+  </div>
+  <div class="grid g3">
+   <div class="card">
+    <h3 style="margin-bottom:10px">One service, many integrations</h3>
+    <div class="tree">
+     <div><span class="d">integrations-mcp</span></div>
+     <div>├─ <span class="f">/opendental/mcp</span> <span class="c">24 tools · live</span></div>
+     <div>├─ <span class="c">/charm/mcp · next</span></div>
+     <div>└─ <span class="f">/health</span> <span class="c">state per integration</span></div>
+    </div>
+    <p class="t2" style="font-size:13px;margin-top:8px">One broken integration answers 503; the others keep serving.</p>
+   </div>
+   <div class="card">
+    <h3 style="margin-bottom:10px">What a practice connection holds</h3>
+    <ul class="clean t2" style="font-size:14px">
+     <li>Token hash (never the token itself)</li>
+     <li>The practice's Open Dental customer key</li>
+     <li>Practice timezone (Open Dental times have no offset)</li>
+     <li>Which Open Dental user creates staff tasks, and the default task list</li>
+     <li>Request pacing (min seconds between calls)</li>
+    </ul>
+   </div>
+   <div class="card">
+    <h3 style="margin-bottom:10px">Where secrets live</h3>
+    <ul class="clean t2" style="font-size:14px">
+     <li>AWS SSM: <code>OD_DEVELOPER_KEY</code>, <code>OPENDENTAL_CONNECTIONS</code></li>
+     <li>Z360 stores only the practice's bearer token in its MCP server settings</li>
+     <li>Keys never reach the AI, prompts, logs or Z360's database</li>
+     <li>A practice never sees Z360's developer key</li>
+    </ul>
+   </div>
+  </div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 7. TOOLS MAP =================== -->
+<section class="slide" data-title="24 tools">
+ <div class="body">
+  <div class="kicker">03 · Inside the MCP server</div>
+  <h2>The 24 Open Dental tools</h2>
+  <div class="stackbar" id="toolbar"></div>
+  <div class="grid g6" id="tools"></div>
+  <div class="row"><span class="pill"><span class="tag" style="background:rgba(240,239,236,.1);color:var(--t1)">WRITE</span>changes Open Dental: needs the person's yes, carries an <code>operation_id</code></span><span class="pill"><span class="tag" style="background:transparent;border:1px solid var(--line)">READ</span>looks only</span><span class="pill">Money tools are built but held for the later payments/insurance package</span></div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 8. SAFE WRITES =================== -->
+<section class="slide" data-title="Safe writes">
+ <div class="body">
+  <div class="kicker">03 · Inside the MCP server</div>
+  <h2>A retry never books twice</h2>
+  <div class="grid" style="grid-template-columns:1.25fr 1fr;align-items:start">
+   <div class="card sm" id="sm"></div>
+   <div class="flex" style="display:flex;flex-direction:column;gap:12px">
+    <h3>Every write, in order</h3>
+    <div class="ev-list">
+     <div class="ev-i" style="--c:var(--z)"><div class="m">1</div><div><h5>Patient says yes</h5><p>The AI reads the exact day, time and provider back first</p></div></div>
+     <div class="ev-i" style="--c:var(--mcp)"><div class="m">2</div><div><h5>Claim the <code>operation_id</code></h5><p>Same ID seen before → return the saved result, don't write</p></div></div>
+     <div class="ev-i" style="--c:var(--mcp)"><div class="m">3</div><div><h5>Pre-check Open Dental</h5><p>Patient already has an overlapping visit → <code>already_booked</code></p></div></div>
+     <div class="ev-i" style="--c:var(--od)"><div class="m">4</div><div><h5>Write</h5><p>Only allowed fields, practice timezone applied</p></div></div>
+     <div class="ev-i" style="--c:var(--od)"><div class="m">5</div><div><h5>Read back</h5><p>"Booked" only when Open Dental shows it</p></div></div>
+     <div class="ev-i" style="--c:var(--good)"><div class="m">6</div><div><h5>Log it, tagged <code>[Z360]</code></h5><p>So staff can tell AI actions from their own</p></div></div>
+    </div>
+   </div>
+  </div>
+  <div class="card">
+   <h3 style="margin-bottom:10px">Why: what we found when testing the real Open Dental API</h3>
+   <div class="grid g4">
+    <div><b style="color:var(--serious)">Two identical bookings accepted</b><p class="t2" style="font-size:13px">No conflict check or duplicate protection on Open Dental's side → we check first</p></div>
+    <div><b style="color:var(--serious)">Misspelled filters ignored</b><p class="t2" style="font-size:13px">Full patient list comes back instead → strict parameter allowlist</p></div>
+    <div><b style="color:var(--serious)">API notes look like staff notes</b><p class="t2" style="font-size:13px">Shown as "User" → every Z360 entry starts with <code>[Z360]</code></p></div>
+    <div><b style="color:var(--serious)">Errors look like success</b><p class="t2" style="font-size:13px">To the agent → every tool returns an explicit status field</p></div>
+   </div>
+  </div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 9. SECURITY =================== -->
+<section class="slide" data-title="Security & tenancy">
+ <div class="body">
+  <div class="kicker">03 · Inside the MCP server</div>
+  <h2>One practice can never reach another's data</h2>
+  <div class="grid" style="grid-template-columns:1fr 1fr;align-items:center">
+   <div class="card seq" id="tenant"></div>
+   <div class="grid g2">
+    <div class="card"><h3>🔒 Private service</h3><p class="t2" style="font-size:14px">No public URL. The gateway allows exactly one private host:port, logged on every use.</p></div>
+    <div class="card"><h3>🎫 Token per practice</h3><p class="t2" style="font-size:14px">Only its SHA-256 is stored. Strict 401, constant-time compare.</p></div>
+    <div class="card"><h3>🧭 Identity from the token</h3><p class="t2" style="font-size:14px">The practice comes from the token, never from anything the AI sends.</p></div>
+    <div class="card"><h3>🧱 Scoped per integration</h3><p class="t2" style="font-size:14px">An Open Dental token used on another integration's endpoint gets 401.</p></div>
+    <div class="card"><h3>🔁 Rotation</h3><p class="t2" style="font-size:14px">New token, update the hash, redeploy; or run two tokens side by side for zero downtime.</p></div>
+    <div class="card"><h3>🧪 Test data only</h3><p class="t2" style="font-size:14px">Sandbox license is test-only. Real patient data waits for the approved data path.</p></div>
+   </div>
+  </div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 10. SKILLS =================== -->
+<section class="slide" id="skills" data-title="Skills">
+ <div class="body">
+  <div class="kicker">04 · Skills, pipelines, automations</div>
+  <h2>Skills: the playbooks the AI follows in patient conversations</h2>
+  <div class="grid" style="grid-template-columns:1fr 1.25fr;align-items:start">
+   <div class="card">
+    <h3 style="margin-bottom:10px">3 skills · 8 files</h3>
+    <div class="tree">
+     <div><span class="d">healthcare-policy</span> <span class="c">read on every request</span></div>
+     <div><span class="d">intake-and-booking/</span></div>
+     <div>├─ <span class="f">new-patient-intake</span></div>
+     <div>├─ <span class="f">appointment-booking</span> <span class="c">incl. parent for child</span></div>
+     <div>├─ <span class="f">family-booking</span> <span class="c">several on one day</span></div>
+     <div>├─ <span class="f">appointment-changes</span> <span class="c">move · cancel · ASAP · late</span></div>
+     <div>└─ <span class="f">urgent-dental-visit</span> <span class="c">pain · injury</span></div>
+     <div><span class="d">staff-handoff</span> <span class="c">Knowledge answers · tickets</span></div>
+    </div>
+   </div>
+   <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card">
+     <h3 style="margin-bottom:12px">How one request is handled</h3>
+     <div class="flow">
+      <div class="fb" style="--c:var(--t2)"><h4>Request</h4><p>"Book my daughter a cleaning"</p></div><div class="fa">→</div>
+      <div class="fb" style="--c:var(--z)"><h4>Policy</h4><p>always</p></div><div class="fa">+</div>
+      <div class="fb" style="--c:var(--z)"><h4>1 skill</h4><p>intake-and-booking</p></div><div class="fa">+</div>
+      <div class="fb" style="--c:var(--z)"><h4>≤ 1 reference</h4><p>appointment-booking</p></div><div class="fa">→</div>
+      <div class="fb" style="--c:var(--mcp)"><h4>Tools</h4><p>Open Dental + Z360</p></div>
+     </div>
+    </div>
+    <div class="card">
+     <h3 style="margin-bottom:12px">Every playbook runs in the same order</h3>
+     <div class="chevs">
+      <div style="background:#22303d">What we need<small>who, what, when</small></div>
+      <div style="background:#22303d">Look up<small>reads, run early</small></div>
+      <div style="background:#2a2a45">Offer<small>real open times</small></div>
+      <div style="background:#1e3a30">Commit<small>writes, after yes</small></div>
+      <div style="background:#1e3a30">Record<small>log + ticket</small></div>
+      <div style="background:#2b2f37">Done when<small>proof it worked</small></div>
+     </div>
+     <p class="t2" style="font-size:13px;margin-top:10px">"Look up" has no reads that depend on the caller's answers, so on calls the voice AI runs them while the caller is still talking.</p>
+    </div>
+   </div>
+  </div>
+  <div class="grid g4">
+   <div class="card tight"><b>🚨 Emergencies first</b><p class="t2" style="font-size:13px">911/ER direction before any question, then an Urgent ticket</p></div>
+   <div class="card tight"><b>👪 Ask who it's for</b><p class="t2" style="font-size:13px">One number = a household; last name + DOB finds the patient</p></div>
+   <div class="card tight"><b>🧾 One record per thing</b><p class="t2" style="font-size:13px">Move, don't double-book; reuse the patient, lead, ticket</p></div>
+   <div class="card tight"><b>🛑 Stops reach Open Dental</b><p class="t2" style="font-size:13px">Opt-out sets <code>text_ok</code> = no in Open Dental too</p></div>
+  </div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 11. PIPELINES =================== -->
+<section class="slide" data-title="Pipelines">
+ <div class="body">
+  <div class="kicker">04 · Skills, pipelines, automations</div>
+  <h2>Outreach: an automation fills it, a pipeline runs it</h2>
+  <div class="flow">
+   <div class="fb" style="--c:var(--pr)"><h4>⏰ Automation</h4><p>Scheduled, internal, no patient</p></div><div class="fa">→</div>
+   <div class="fb" style="--c:var(--od)"><h4>🦷 Reads Open Dental</h4><p>Due recalls, planned treatment, missed visits, ASAP list</p></div><div class="fa">→</div>
+   <div class="fb" style="--c:var(--crit)"><h4>🛡 7 duplicate checks</h4><p>First fail → skip</p></div><div class="fa">→</div>
+   <div class="fb" style="--c:var(--z)"><h4>👪 1 lead per household</h4><p>Names everyone on the number</p></div><div class="fa">→</div>
+   <div class="fb" style="--c:var(--z)"><h4>💬 Pipeline goal</h4><p>Inbox agent texts, follows up, handles replies</p></div><div class="fa">→</div>
+   <div class="fb" style="--c:var(--z)"><h4>📅 "Yes"</h4><p>Booked via intake-and-booking</p></div><div class="fa">→</div>
+   <div class="fb" style="--c:var(--good)"><h4>✍️ Written back</h4><p>Recall status / commlog in Open Dental</p></div>
+  </div>
+  <div class="grid g3" id="pipelines"></div>
+  <div class="row"><span class="pill"><span class="dot" style="background:var(--warn)"></span>Every pipeline and automation is installed <b>paused</b></span><span class="pill">Switched on together, only when the practice picks Z360 as the sender for that message</span></div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 12. AUTOMATIONS & DUP CHECKS =================== -->
+<section class="slide" data-title="Automations">
+ <div class="body">
+  <div class="kicker">04 · Skills, pipelines, automations</div>
+  <h2>A weekday for the automations, and how no one gets messaged twice</h2>
+  <div class="card">
+   <h3>Automation schedule (practice time, weekdays)</h3>
+   <div class="day" id="day"></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr;align-items:start">
+   <div class="card">
+    <h3 style="margin-bottom:12px">Before anyone is added: the 7 checks</h3>
+    <div class="funnel" id="funnel"></div>
+   </div>
+   <div class="card">
+    <h3 style="margin-bottom:12px">A recall lead from start to finish <span class="muted" style="font-weight:400;font-size:13px">(example names)</span></h3>
+    <div class="ev-list">
+     <div class="ev-i" style="--c:var(--pr)"><div class="m">1</div><div><h5>Mon 9:00 · Added</h5><p>Recall fill finds Ali and Zara due, sharing one number → one lead names both</p></div></div>
+     <div class="ev-i" style="--c:var(--z)"><div class="m">2</div><div><h5>Mon · Contacted</h5><p>One text names both children. Each recall marked "reminder sent" in Open Dental</p></div></div>
+     <div class="ev-i" style="--c:var(--z)"><div class="m">3</div><div><h5>Fri · Followed up</h5><p>No reply after 4 days → one shorter follow-up</p></div></div>
+     <div class="ev-i" style="--c:var(--od)"><div class="m">4</div><div><h5>Fri · Booked</h5><p>Mom replies "yes, Monday morning" → both booked back to back</p></div></div>
+     <div class="ev-i" style="--c:var(--good)"><div class="m">✓</div><div><h5>Done · Secured</h5><p>Lead closed; log entries on both records. "STOP" at any point ends it and turns texting off in both systems</p></div></div>
+    </div>
+   </div>
+  </div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 13. STAFF IN CONTROL =================== -->
+<section class="slide" data-title="Staff in control">
+ <div class="body">
+  <div class="kicker">04 · Skills, pipelines, automations</div>
+  <h2>The AI does routine work. Staff decide everything else.</h2>
+  <div class="grid" style="grid-template-columns:1fr 1.3fr;align-items:start">
+   <div class="card" style="border-top:4px solid var(--good)">
+    <h3 style="margin-bottom:12px">✅ The AI can (with the person's yes)</h3>
+    <ul class="clean t2">
+     <li>Register new patients</li>
+     <li>Book, move, cancel, add to the ASAP list</li>
+     <li>Update contact details and texting consent</li>
+     <li>Record recall outcomes and referral sources</li>
+     <li>Log communication; create staff tasks, tickets and leads</li>
+    </ul>
+    <p class="muted" style="font-size:13px;margin-top:12px">Nothing else is changed in Open Dental.</p>
+   </div>
+   <div class="card" style="border-top:4px solid var(--z)">
+    <h3 style="margin-bottom:12px">🙋 Always goes to a person, as a ticket</h3>
+    <table class="cmp">
+     <tr><th>Request</th><th>Goes to</th><th>Ticket type</th></tr>
+     <tr><td>Clinical questions, medication, treatment choices</td><td>Dentist</td><td>Clinical Question</td></tr>
+     <tr><td>Prices, estimates, what insurance pays</td><td>Treatment coordinator</td><td>Pricing Request · Insurance Check</td></tr>
+     <tr><td>Balances, disputes, refunds, payment plans</td><td>Billing</td><td>Billing Question</td></tr>
+     <tr><td>Complaints, attorneys, subpoenas</td><td>Office manager</td><td>Complaint</td></tr>
+     <tr><td>Records, forms, letters</td><td>Front desk</td><td>Records Request</td></tr>
+    </table>
+   </div>
+  </div>
+  <div class="card" style="border-left:5px solid var(--crit)">
+   <b>🚨 Emergencies first:</b> <span class="t2">trouble breathing or swallowing, swelling toward the eye or neck, bleeding that won't stop, serious injury → "call 911 or go to the nearest ER" before any question, then an Urgent ticket.</span>
+  </div>
+  <div class="card"><b>📋 Daily review, 7:30 every weekday:</b> <span class="t2">one ticket for the office manager covering yesterday's work, open tickets (urgent and complaints on top), today's schedule, and runs or tools that failed. First names and ticket numbers only.</span></div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 14. PROOF: CALL =================== -->
+<section class="slide" id="proof" data-title="Live proof: call">
+ <div class="body">
+  <div class="kicker">05 · Live proof · sandbox</div>
+  <h2>A real voice call, booked into Open Dental</h2>
+  <div class="grid" style="grid-template-columns:1.45fr 1fr .9fr;align-items:start">
+   <div class="shot" data-zoom><img src="assets/call_appointment_z360_ss.png" alt="Z360 inbox after the call"><span class="cap" style="color:var(--z)">Z360 · Inbox</span></div>
+   <div class="shot" data-zoom><img src="assets/call_appointment_opendental_ss.png" alt="Open Dental schedule with the booked appointment"><span class="cap" style="color:var(--od)">Open Dental · Schedule</span></div>
+   <div class="ev-list">
+    <div class="ev-i" style="--c:var(--z)"><div class="m">1</div><div><h5>Inbound call answered by AI "Mark"</h5><p>Oct 15, 9:48 PM · 7 min 13 s · recording + transcript</p></div></div>
+    <div class="ev-i" style="--c:var(--od)"><div class="m">2</div><div><h5>New patient created</h5><p>Mohammed Sohail → Open Dental patient #23 (test data)</p></div></div>
+    <div class="ev-i" style="--c:var(--od)"><div class="m">3</div><div><h5>Visit booked</h5><p>Fri Oct 16, 12:00 PM · Dr. Brian Albert · "New patient checkup and cleaning"</p></div></div>
+    <div class="ev-i" style="--c:var(--z)"><div class="m">4</div><div><h5>SMS confirmation sent</h5><p>Time, provider, what to bring, new-patient forms link</p></div></div>
+    <div class="ev-i" style="--c:var(--z)"><div class="m">5</div><div><h5>2 tickets for staff</h5><p>Appointment Request · Referral Source</p></div></div>
+    <div class="ev-i" style="--c:var(--good)"><div class="m">6</div><div><h5>Logged in Open Dental</h5><p>Communication log entry tagged <code>[Z360]</code></p></div></div>
+   </div>
+  </div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 15. PROOF: SMS =================== -->
+<section class="slide" data-title="Live proof: text">
+ <div class="body">
+  <div class="kicker">05 · Live proof · sandbox</div>
+  <h2>A real text conversation, booked into Open Dental</h2>
+  <div class="grid" style="grid-template-columns:1.55fr 1fr;align-items:start">
+   <div class="shot" data-zoom><img src="assets/sms_z360.png" alt="Z360 inbox: SMS booking conversation handled by the AI agent"><span class="cap" style="color:var(--z)">Z360 · Inbox · SMS</span></div>
+   <div class="ev-list">
+    <div class="ev-i" style="--c:var(--z)"><div class="m">1</div><div><h5>Patient texts: "book an appointment for tomorrow"</h5><p>The agent sees tomorrow is Saturday and the practice is closed, then asks who it's for: last name, date of birth, visit type, preferred time</p></div></div>
+    <div class="ev-i" style="--c:var(--z)"><div class="m">2</div><div><h5>"Ahmed Usman, 1 Jan 2004, cavity check"</h5><p>Agent asks about pain or swelling first (urgent-visit rule)</p></div></div>
+    <div class="ev-i" style="--c:var(--od)"><div class="m">3</div><div><h5>Real open times offered</h5><p>Mon Oct 19 12:00 with Dr. Sarah Lexington; Tue Oct 20, Wed Oct 21 at noon</p></div></div>
+    <div class="ev-i" style="--c:var(--warn)"><div class="m">4</div><div><h5>First registration failed on the sandbox</h5><p>Staff refreshed Open Dental and told the agent "try booking now" from the side panel</p></div></div>
+    <div class="ev-i" style="--c:var(--od)"><div class="m">5</div><div><h5>Patient registered, visit booked</h5><p>Appointment #56 · Tue Oct 20, 10:00–10:30 · Dr. Brian Albert · new-patient exam · status Scheduled</p></div></div>
+    <div class="ev-i" style="--c:var(--good)"><div class="m">6</div><div><h5>Confirmed, ticketed, logged</h5><p>SMS confirmation delivered · ticket #2905 marked completed · text exchange logged on the Open Dental patient record</p></div></div>
+   </div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr 1fr">
+   <div class="card">
+    <h3 style="margin-bottom:10px">What this shows</h3>
+    <ul class="clean t2" style="font-size:13.5px">
+     <li>The same skills run on text as on calls</li>
+     <li>Business hours and the urgent-visit check are applied before booking</li>
+     <li>Staff can step in mid-conversation from the agent panel</li>
+     <li>The agent lists what's still missing: forms link not in Knowledge yet; email, insurance and referral source</li>
+    </ul>
+   </div>
+   <div class="card">
+    <h3 style="margin-bottom:10px">Plus: reschedule on a second call</h3>
+    <div class="flow">
+     <div class="fb" style="--c:var(--z)"><h4>Verified</h4><p>Name + DOB</p></div><div class="fa">→</div>
+     <div class="fb" style="--c:var(--od)"><h4>Appt 54</h4><p>Oct 16 → <b>Oct 19</b>, 12:00</p></div><div class="fa">→</div>
+     <div class="fb" style="--c:var(--good)"><h4>Same record</h4><p>No duplicate</p></div>
+    </div>
+   </div>
+   <div class="card">
+    <h3 style="margin-bottom:10px">Real vs simulated</h3>
+    <table class="cmp" style="font-size:13px">
+     <tr><td>Sandbox</td><td>Live Open Dental 26.1 + eConnector: writes landed and were read back</td></tr>
+     <tr><td>Unit tests</td><td>Recorded responses: timeouts, conflicts, bad input</td></tr>
+     <tr><td>Times</td><td>Shown in PKT: staging is temporarily on Asia/Karachi</td></tr>
+    </table>
+   </div>
+  </div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 16. SANDBOX vs FGD =================== -->
+<section class="slide" id="fgd" data-title="Sandbox → FGD">
+ <div class="body">
+  <div class="kicker">06 · Going live at FGD</div>
+  <h2>Same code path. Only the connection changes.</h2>
+  <div class="card seq" id="swap"></div>
+  <table class="cmp card" style="padding:0">
+   <tr><th></th><th>Today (demo)</th><th>Feel Good Dentistry</th></tr>
+   <tr><td>Z360 environment</td><td>Staging, test org</td><td>Beta, FGD org 628</td></tr>
+   <tr><td>Open Dental</td><td>Our Windows VM, demo database ("Relaxation Dental")</td><td>FGD's own server + eConnector</td></tr>
+   <tr><td>Customer key</td><td>Our sandbox key</td><td>FGD enables Z360 in Open Dental → their key</td></tr>
+   <tr><td>Timezone</td><td>Sandbox reports Asia/Karachi (install check fails, on purpose)</td><td>America/Chicago, must match the Z360 org</td></tr>
+   <tr><td>Duplicate-write memory</td><td>In memory, lost on redeploy</td><td>Redis (Valkey), survives restarts</td></tr>
+   <tr><td>Outreach</td><td>Pipelines paused</td><td>Switched on one at a time, after sender decisions</td></tr>
+  </table>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 17. FGD ROADMAP =================== -->
+<section class="slide" data-title="FGD roadmap">
+ <div class="body">
+  <div class="kicker">06 · Going live at FGD</div>
+  <h2>Six steps to a live pilot, each with a gate</h2>
+  <div class="road">
+   <div class="ph" style="--c:var(--c1)"><div class="n">1</div><h4>Discovery call</h4><div class="who">Mon Oct 19 · Ali + Ansar</div>
+    <ul class="clean"><li>IT contact</li><li>Open Dental version</li><li>eConnector &amp; key setup</li><li>Current reminder tools</li><li>Appointment types have procedures?</li><li>How staff log calls &amp; texts</li></ul>
+    <div class="gate">Gate: answers recorded</div></div>
+   <div class="ph" style="--c:var(--c2)"><div class="n">2</div><h4>Approvals</h4><div class="who">Ansar + clinic</div>
+    <ul class="clean"><li>Data agreements</li><li>Approved access / data path</li><li>Clinic authorizes the scope of writes</li></ul>
+    <div class="gate">Gate: no real data before this</div></div>
+   <div class="ph" style="--c:var(--c3)"><div class="n">3</div><h4>Connect</h4><div class="who">FGD office + Sohail / Talha</div>
+    <ul class="clean"><li>Office enables Z360 key in Open Dental (Setup › Advanced › API)</li><li>Add FGD connection on beta, redeploy</li><li>Register MCP server in FGD's Z360 org with its token</li></ul>
+    <div class="gate">Gate: /health ok, practice info returns FGD</div></div>
+   <div class="ph" style="--c:var(--c4)"><div class="n">4</div><h4>Install preset</h4><div class="who">Skills team (Hasnain) + Sohail</div>
+    <ul class="clean"><li>Install checks: name, timezone, providers, types</li><li>Scheduling rules, ticket types, recall statuses, task lists</li><li>Skills installed; pipelines + automations paused</li></ul>
+    <div class="gate">Gate: every check passes</div></div>
+   <div class="ph" style="--c:var(--c5)"><div class="n">5</div><h4>Witnessed acceptance</h4><div class="who">Office + Ali + engineering</div>
+    <ul class="clean"><li>14 scripted scenarios (child booking, family, cancel→rebook, emergency, STOP, server off…)</li><li>Checked in Open Dental after each</li></ul>
+    <div class="gate">Gate: office signs off</div></div>
+   <div class="ph" style="--c:var(--c6)"><div class="n">6</div><h4>Cutover, one at a time</h4><div class="who">Ali + clinic</div>
+    <ul class="clean"><li>One sender per message type (Open Dental eReminders/eRecall or Z360)</li><li>Calls: RingCentral → Z360 move</li><li>Switch pipeline + its automation on together</li><li>Write-disable switch + rollback owner</li></ul>
+    <div class="gate">Gate: sender agreed per workflow</div></div>
+  </div>
+  <div class="row"><span class="pill"><span class="dot" style="background:var(--warn)"></span>The Friday demo and a live clinic rollout are separate gates</span><span class="pill">Oct 19: runbook handoff to Talha (<code>integrations_mcp/README.md</code> + decision log)</span></div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== LIMITS A: OFFICE SERVER =================== -->
+<section class="slide" data-title="If the office server is off">
+ <div class="body">
+  <div class="kicker">06 · Going live at FGD · know before go-live</div>
+  <h2>If the office computer is off, the AI can't reach Open Dental</h2>
+  <div class="chain">
+   <div class="ck" style="--c:var(--t2)"><h4>📞 Patient</h4><p>Calls or texts any time</p><div class="ok">● always</div></div><div class="ca">→</div>
+   <div class="ck" style="--c:var(--z)"><h4>Z360 + AI</h4><p>Answers 24/7</p><div class="ok">● always on (AWS)</div></div><div class="ca">→</div>
+   <div class="ck" style="--c:var(--mcp)"><h4>integrations-mcp</h4><p>Our server</p><div class="ok">● always on (AWS)</div></div><div class="ca">→</div>
+   <div class="ck" style="--c:var(--od)"><h4>Open Dental cloud API</h4><p>Relays requests to the office</p><div class="ok">● always on (Open Dental)</div></div><div class="ca">→</div>
+   <div class="ck bad" style="--c:var(--warn);flex:1.5"><h4>Office server + eConnector</h4><p>Windows machine in the practice running Open Dental's eConnector. <b>Off, asleep, restarting for updates, internet down or eConnector stopped → no connection.</b></p><div class="ok">● only when the office keeps it on</div></div><div class="ca">→</div>
+   <div class="ck" style="--c:var(--pr)"><h4>Open Dental database</h4><p>Patients, schedule</p><div class="ok" style="color:var(--t3)">● in the office</div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1.15fr 1fr 1fr;align-items:start">
+   <div class="card">
+    <h3 style="margin-bottom:12px">What happens when it's off</h3>
+    <div class="ev-list">
+     <div class="ev-i" style="--c:var(--z)"><div class="m">1</div><div><h5>Patient asks to book at 9 PM</h5><p>The AI calls an Open Dental tool as usual</p></div></div>
+     <div class="ev-i" style="--c:var(--warn)"><div class="m">2</div><div><h5>Server answers <code>practice_unreachable</code></h5><p>"Nothing was read or changed"</p></div></div>
+     <div class="ev-i" style="--c:var(--z)"><div class="m">3</div><div><h5>AI claims nothing</h5><p>Takes the request and says the team will follow up</p></div></div>
+     <div class="ev-i" style="--c:var(--good)"><div class="m">4</div><div><h5>Front-desk ticket created</h5><p>Staff book it when the office opens</p></div></div>
+    </div>
+    <span class="st-tag"><span class="dot" style="background:var(--warn)"></span>Built in server + policy · to test with eConnector stopped in the sandbox</span>
+   </div>
+   <div class="card" style="border-top:4px solid var(--good)">
+    <h3 style="margin-bottom:12px">✅ Still works</h3>
+    <ul class="clean t2" style="font-size:14px">
+     <li>Answering calls and texts</li>
+     <li>Practice questions from Knowledge (hours, location, forms)</li>
+     <li>Emergency direction</li>
+     <li>Taking messages, creating tickets and callbacks</li>
+    </ul>
+   </div>
+   <div class="card" style="border-top:4px solid var(--crit)">
+    <h3 style="margin-bottom:12px">⛔ Stops until it's back</h3>
+    <ul class="clean t2" style="font-size:14px">
+     <li>Finding a patient, checking open times</li>
+     <li>Booking, moving, cancelling</li>
+     <li>Recall and treatment lists; that day's outreach runs skip</li>
+     <li>Writing notes to Open Dental</li>
+    </ul>
+   </div>
+  </div>
+  <div class="card" style="border-left:5px solid var(--warn)"><b>Ask FGD (Oct 19):</b> <span class="t2">where does their eConnector run, and does that machine stay on overnight and on weekends? After-hours booking only works if it stays on with sleep and auto-restart off.</span></div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== LIMITS B: OTHER LIMITS =================== -->
+<section class="slide" data-title="Other limits to know">
+ <div class="body">
+  <div class="kicker">06 · Going live at FGD · know before go-live</div>
+  <h2>Other limits stakeholders should know</h2>
+  <div class="grid g5" id="limits" style="align-items:start"></div>
+  <div class="row" id="limlegend"></div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 18. GAPS =================== -->
+<section class="slide" id="gaps" data-title="Gaps & findings">
+ <div class="body">
+  <div class="kicker">07 · Gaps &amp; findings</div>
+  <h2>What we found, and what closes it</h2>
+  <div style="display:flex;flex-direction:column;gap:10px" id="gaplist"></div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<!-- =================== 19. NEXT =================== -->
+<section class="slide" id="next" data-title="Next steps">
+ <div class="body">
+  <div class="kicker">08 · Next steps</div>
+  <h2>What happens next</h2>
+  <div class="tl">
+   <div class="tp" style="--c:var(--good)"><div class="d">Fri Oct 16</div><h4>Internal sandbox demo</h4><p>This walkthrough</p></div>
+   <div class="tp" style="--c:var(--c1)"><div class="d">Mon Oct 19</div><h4>FGD call + Talha handoff</h4><p>Discovery answers; runbook and decision log handed over</p></div>
+   <div class="tp" style="--c:var(--c4)"><div class="d">Week of Oct 19</div><h4>Close the 2 write gaps</h4><p>Timeout-retry test; beta redeploy-retry test</p></div>
+   <div class="tp" style="--c:var(--c3)"><div class="d">After approvals</div><h4>Connect FGD on beta</h4><p>Key, connection, install checks, preset paused</p></div>
+   <div class="tp" style="--c:var(--c5)"><div class="d">Then</div><h4>Witnessed acceptance</h4><p>14 scenarios with the office</p></div>
+   <div class="tp" style="--c:var(--c6)"><div class="d">Then</div><h4>Pilot, one workflow at a time</h4><p>Booking first; outreach per sender decision</p></div>
+  </div>
+  <div class="grid g3" style="margin-top:14px">
+   <div class="card"><h3 style="margin-bottom:8px">Decisions we need</h3><ul class="clean t2" style="font-size:14px"><li>Sender per workflow (recall, missed visits, open times, feedback)</li><li>Should staff Z360 messages appear in Open Dental?</li><li>Texting consent "unknown", minors → guardian, cost sharing</li></ul></div>
+   <div class="card"><h3 style="margin-bottom:8px">Waiting on</h3><ul class="clean t2" style="font-size:14px"><li>Open Dental: sandbox key billing + rate limit (asked Oct 16)</li><li>FGD: discovery answers + approvals</li><li>Hasnain: preset review</li></ul></div>
+   <div class="card"><h3 style="margin-bottom:8px">Measure from day one</h3><ul class="clean t2" style="font-size:14px"><li>Bookings and changes done by AI</li><li>Failed / uncertain writes, duplicate messages (target 0)</li><li>Recall conversions, ticket age, staff time saved</li></ul></div>
+  </div>
+ </div>
+ <div class="num"></div>
+</section>
+
+<script>
+/* ================= data ================= */
+const TOOLDOMS = [
+ {name:"Practice", c:"var(--c1)", tools:[["get_practice_info",0]]},
+ {name:"Patients", c:"var(--c2)", tools:[["find_patient",0],["get_patient",0],["get_family",0],["create_patient",1],["update_patient_contact",1]]},
+ {name:"Scheduling", c:"var(--c3)", tools:[["find_open_slots",0],["list_patient_appointments",0],["list_appointments",0],["list_asap",0],["book_appointment",1],["reschedule_appointment",1],["cancel_appointment",1],["confirm_appointment",1],["add_to_asap_list",1]]},
+ {name:"Recall & treatment", c:"var(--c4)", tools:[["list_due_recalls",0],["list_pending_treatment",0],["update_recall_status",1]]},
+ {name:"Communication", c:"var(--c5)", tools:[["list_communications",0],["log_communication",1],["create_staff_task",1],["record_referral_source",1]]},
+ {name:"Money (later)", c:"var(--c6)", tools:[["get_balance",0],["get_insurance",0]]},
+];
+const PIPELINES = [
+ {n:"Recall", i:"🔁", who:"Due for a cleaning, nothing booked, < 3 reminders", msg:"Time for a checkup; reply to pick a time", res:"Booked; outcome on the Open Dental recall", fu:"1 after 4 days, then closed"},
+ {n:"Treatment follow-up", i:"🦷", who:"Planned treatment not scheduled (last 12 months)", msg:"Your dentist planned follow-up care (never named)", res:"Scheduling, cost, clinical → right person", fu:"1 after 7 days, then a coordinator task"},
+ {n:"Missed visits", i:"⏱", who:"Marked Broken in the last 2 business days", msg:"Can we find you a new time?", res:"Same appointment put back on the schedule", fu:"1 after 2 days, then a front-desk task"},
+ {n:"Open time offers", i:"⚡", who:"ASAP-list patients whose visit fits a freed time (≤ 3 per time)", msg:"A time opened up; first reply gets it", res:"First yes moved in; others told it's taken", fu:"None; ends when the time passes"},
+ {n:"Visit feedback", i:"⭐", who:"Visit completed today, no ask in 90 days", msg:"How did your visit go?", res:"Happy → review link; unhappy → Complaint ticket", fu:"None"},
+ {n:"New patients", i:"👋", who:"Leads from new-patient intake (practice's existing pipeline)", msg:"Outreach off for now", res:"Staff follow up", fu:"—"},
+];
+const AUTOS = [
+ {t:7.5, l:"Daily review", s:"07:30", c:"var(--c1)", tip:"Office manager's summary as a Daily Review ticket"},
+ {t:9, l:"Recall fill", s:"09:00", c:"var(--c4)", tip:"Adds households due for a cleaning to Recall"},
+ {t:10, l:"Missed visits fill", s:"10:00", c:"var(--c2)", tip:"Adds households whose visits the office marked Broken"},
+ {t:10, l:"Treatment follow-up", s:"10:00 · Mondays", c:"var(--c3)", tip:"Adds households with unscheduled planned treatment (Mondays only)", up:true},
+ {t:14, l:"Open time offers fill", s:"14:00", c:"var(--c5)", tip:"Finds tomorrow's freed times; up to 3 ASAP households per time"},
+ {t:16.5, l:"Visit feedback fill", s:"16:30", c:"var(--c6)", tip:"Adds households with a visit completed today"},
+];
+const CHECKS = [
+ "Practice still sends this message itself? → pipeline stays off",
+ "Number already has an active lead in any pipeline",
+ "Family on one number → one lead per household",
+ "Same open time offered in the last 7 days",
+ "Open sensitive ticket, recent log entry, or staff handling the conversation",
+ "Something changed since the run → re-checked before first message",
+ "Said STOP (Open Dental text_ok = no, or Z360 stop status)",
+];
+const GAPS = [
+ {st:"Found today", c:"var(--warn)", h:"Booked visit has no procedures attached", p:"Open Dental asks for a procedure when staff close the appointment window. The sandbox's appointment types have no procedures.", fix:"<b>Fix:</b> FGD's appointment types carry their procedures; we already send the type on booking, and Open Dental attaches its procedures. Add an install check. Ask FGD on Oct 19."},
+ {st:"Found today", c:"var(--warn)", h:"Sandbox registration failed until Open Dental was refreshed", p:"In the text test, creating the patient failed until staff refreshed the sandbox; the retry then worked. Cause not yet confirmed.", fix:"<b>Next:</b> find the cause in the server logs; make sure the agent reports it to staff and never claims a booking that didn't happen. Also fill the new-patient forms link in Knowledge."},
+ {st:"Next week", c:"var(--serious)", h:"A write retried after the gateway times out", p:"Gateway waits 45 s, Open Dental up to 60 s. Rarely, a late retry could repeat a log entry or staff task. Bookings are safe (pre-check).", fix:"<b>Fix:</b> duplicate check before log/task writes; hold the claim until the outcome is known. <b>Evidence:</b> timeout + retry test, no duplicate."},
+ {st:"Staging only", c:"var(--warn)", h:"Staging forgets operation IDs on redeploy", p:"Staging keeps them in memory; beta uses Redis.", fix:"<b>Evidence:</b> on beta, write → redeploy → retry with same ID → not repeated."},
+ {st:"Decision", c:"var(--c1)", h:"Staff messages in Z360 aren't written to Open Dental", p:"Only AI actions are logged today. Staff working in Open Dental won't see a colleague's Z360 text.", fix:"<b>Options:</b> leave it · daily summary per conversation (recommended if needed) · per message · manual. Decide after FGD explains how they log today."},
+ {st:"Install check", c:"var(--good)", h:"Practice timezone must match the Z360 org", p:"The sandbox reports Asia/Karachi; that mismatch once stopped the voice AI offering times.", fix:"<b>Covered:</b> install check fails on mismatch. FGD = America/Chicago."},
+ {st:"Verify on staging", c:"var(--warn)", h:"Pipeline behavior not yet proven end to end", p:"A lead starting its own SMS thread, hidden lead fields, lead email requirement, unattended approval policy.", fix:"<b>Plan:</b> test each before switching any outreach on. Pipelines stay paused until then."},
+ {st:"Waiting", c:"var(--t3)", h:"Open Dental rate limit and sandbox billing", p:"Asked Open Dental on Oct 16. Decides how fast batch outreach can run.", fix:"Server already paces calls per practice (configurable)."},
+ {st:"Resolved", c:"var(--good)", h:"Tool names for a second clinic", p:"Two-org test: every clinic gets the same opendental-* names, per its own group.", fix:"<b>No change needed.</b> PR note corrected."},
+];
+
+/* ================= renderers ================= */
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+
+// tools
+(function(){
+ const total = TOOLDOMS.reduce((a,d)=>a+d.tools.length,0);
+ $("#toolbar").innerHTML = TOOLDOMS.map(d=>`<div style="flex:${d.tools.length};background:${d.c}" title="${d.name}: ${d.tools.length}">${d.tools.length}</div>`).join("");
+ $("#tools").innerHTML = TOOLDOMS.map(d=>{
+   const w=d.tools.filter(t=>t[1]).length;
+   return `<div class="dom" style="--c:${d.c}"><h4><span>${d.name}</span><b>${d.tools.length}</b></h4>
+   <div class="muted" style="font-size:12px;margin:-6px 0 8px">${d.tools.length-w} read · ${w} write</div>
+   ${d.tools.map(t=>`<div class="tool ${t[1]?'w-':'r'}"><span>${t[0]}</span><span class="w">${t[1]?'WRITE':'READ'}</span></div>`).join("")}</div>`;
+ }).join("");
+ console.assert(total===24,"tool count",total);
+})();
+
+// pipelines
+$("#pipelines").innerHTML = PIPELINES.map(p=>`<div class="pl"><h4>${p.i} ${p.n}</h4><dl><dt>Who</dt><dd>${p.who}</dd><dt>Message</dt><dd>${p.msg}</dd><dt>Result</dt><dd>${p.res}</dd><dt>Follow-up</dt><dd>${p.fu}</dd></dl></div>`).join("");
+
+// day timeline
+(function(){
+ const el=$("#day"), a=7, b=17.5, pos=t=>((t-a)/(b-a)*100);
+ let h=`<div class="axis"></div>`;
+ for(let t=7;t<=17;t++) h+=`<div class="tick" style="left:${pos(t)}%">${t<=12?t:t-12}${t<12?'am':'pm'}</div>`;
+ AUTOS.forEach(e=>{
+   if(e.up) h+=`<div class="ev" style="left:${pos(e.t)}%;top:86px;--c:${e.c}"><div class="m" style="background:${e.c}"></div><div class="lb" style="margin-top:30px">${e.l}<small>${e.s}</small></div><div class="tip" style="bottom:auto;top:110%">${e.tip}</div></div>`;
+   else h+=`<div class="ev" style="left:${pos(e.t)}%;top:42px;--c:${e.c}"><div class="lb">${e.l}<small>${e.s}</small></div><div class="m" style="background:${e.c}"></div><div class="tip">${e.tip}</div></div>`;
+ });
+ el.innerHTML=h;
+})();
+
+// funnel
+$("#funnel").innerHTML = CHECKS.map((c,i)=>`<div style="width:${100-i*5}%"><b>${i+1}</b><span>${c}</span></div>`).join("") +
+ `<div style="width:62%;border-color:var(--good);color:var(--t1)"><b style="color:var(--good)">✓</b>Passes all 7 → added as one lead</div>`;
+
+
+const LSTAT={design:["By design","var(--t3)"],mit:["Handled","var(--good)"],dec:["FGD decision","var(--c1)"],wait:["Waiting / to confirm","var(--warn)"],risk:["Known risk","var(--serious)"]};
+const LIMITS=[
+ {h:"Speed & volume", items:[
+  ["Each Open Dental call takes 1.6–7 s","Callers may hear short pauses. The voice AI runs lookups early, while the caller is still talking.","mit"],
+  ["API rate limit unknown","Asked Open Dental Oct 16. Outreach runs work household by household, so 20 households is a long run.","wait"]]},
+ {h:"Scheduling", items:[
+  ["No double-booking guard in Open Dental","Staff and the AI booking the same slot at the same second could both succeed. We re-check right before booking but can't lock Open Dental's schedule.","risk"],
+  ["Only mapped visit types","The AI books only the types and providers in the scheduling rules. Planned treatment with its procedures stays with staff.","design"],
+  ["Staff changes aren't pushed to Z360","The AI reads Open Dental live, but outreach reacts at the next scheduled run (e.g. a missed visit → next 10:00 run).","design"]]},
+ {h:"Communication", items:[
+  ["Texts come from Z360 numbers","Open Dental doesn't let third parties use its texting.","design"],
+  ["Two senders = double messages","If Open Dental's own reminders stay on, Z360 doesn't send that type. One sender per message type.","dec"],
+  ["Calls need the phone cutover","FGD's line stays on RingCentral/voicemail until it moves to Z360, so the AI can't answer their real number yet.","dec"]]},
+ {h:"Scope & safety", items:[
+  ["No prices, payments, insurance or clinical advice","These become tickets for staff.","design"],
+  ["Open Dental user permissions don't limit the API key","Our server is the safety boundary: only allowed fields and actions.","mit"],
+  ["Pause switch takes minutes","A practice connection can be switched off, but it takes effect on redeploy, so it isn't instant.","risk"]]},
+ {h:"Setup & cost", items:[
+  ["Needs Windows + eConnector + a recent version","Some API methods need newer Open Dental versions. FGD's version is unknown.","wait"],
+  ["Open Dental charges per location","Billing starts once FGD's key is enabled on their live database. The amount is still to confirm with Open Dental.","wait"],
+  ["No real patient data yet","Synthetic data only until the agreements and the approved data path are in place.","dec"]]},
+];
+$("#limits").innerHTML=LIMITS.map(c=>`<div class="lcol"><h3>${c.h}</h3>${c.items.map(i=>`<div class="lim" style="border-left:4px solid ${LSTAT[i[2]][1]}"><b>${i[0]}</b><p>${i[1]}</p><span class="st-tag"><span class="dot" style="background:${LSTAT[i[2]][1]}"></span>${LSTAT[i[2]][0]}</span></div>`).join("")}</div>`).join("");
+$("#limlegend").innerHTML=Object.values(LSTAT).map(v=>`<span class="pill"><span class="dot" style="background:${v[1]}"></span>${v[0]}</span>`).join("");
+
+// gaps
+$("#gaplist").innerHTML = GAPS.map(g=>`<div class="gap" style="--c:${g.c}"><div class="st"><span class="dot" style="background:${g.c}"></span>${g.st}</div><div><h4>${g.h}</h4><p>${g.p}</p></div><div class="fix">${g.fix}</div></div>`).join("");
+
+/* ----- generic sequence diagram (SVG) ----- */
+function seq(el, lanes, steps, opt={}){
+ const W=opt.w||1400, top=58, rowH=opt.rowH||40, pad=104;
+ const H=top+steps.length*rowH+24;
+ const x=i=>pad+i*((W-2*pad)/(lanes.length-1));
+ let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+ <defs>${lanes.map((l,i)=>`<marker id="ah${el.id}${i}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="${l.c}"/></marker>`).join("")}
+ <marker id="ahg${el.id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#8d8c85"/></marker></defs>`;
+ lanes.forEach((l,i)=>{
+  s+=`<line x1="${x(i)}" y1="${top-10}" x2="${x(i)}" y2="${H-8}" stroke="#343a44" stroke-dasharray="4 5"/>`;
+  s+=`<rect x="${x(i)-92}" y="6" width="184" height="36" rx="10" fill="#1f2329" stroke="${l.c}" stroke-width="1.5"/>`;
+  s+=`<text x="${x(i)}" y="29" text-anchor="middle" fill="#f0efec" font-size="15" font-weight="700">${esc(l.n)}</text>`;
+ });
+ steps.forEach((st,k)=>{
+  const y=top+k*rowH+rowH/2;
+  const n=`<circle cx="22" cy="${y}" r="11" fill="#2a2f37"/><text x="22" y="${y+4}" text-anchor="middle" fill="#f0efec" font-size="11" font-weight="800">${k+1}</text>`;
+  s+=n;
+  if(st.band) s+=`<rect x="40" y="${y-rowH/2+3}" width="${W-50}" height="${rowH-6}" rx="8" fill="${st.band}" opacity=".10"/>`;
+  if(st.self!==undefined){
+   const xi=x(st.self);
+   const bw=Math.max(240,st.l.length*7.4+36);
+   s+=`<rect x="${xi-bw/2}" y="${y-14}" width="${bw}" height="28" rx="8" fill="#22262d" stroke="${lanes[st.self].c}" stroke-opacity=".7"/>`;
+   s+=`<text x="${xi}" y="${y+5}" text-anchor="middle" fill="#f0efec" font-size="13.5">${esc(st.l)}</text>`;
+  } else {
+   const a=x(st.f), b=x(st.t), ret=st.r;
+   const col= ret? "#8d8c85" : lanes[st.f].c;
+   const mk = ret? `ahg${el.id}` : `ah${el.id}${st.f}`;
+   s+=`<line x1="${a}" y1="${y+6}" x2="${b + (b>a?-4:4)}" y2="${y+6}" stroke="${col}" stroke-width="2" ${ret?'stroke-dasharray="6 4"':''} marker-end="url(#${mk})"/>`;
+   const mx=(a+b)/2;
+   s+=`<text x="${mx}" y="${y-2}" text-anchor="middle" fill="${ret?'#c3c2b7':'#f0efec'}" font-size="13.5" ${st.code?'font-family="JetBrains Mono,ui-monospace,monospace" font-size="13"':''}>${esc(st.l)}</text>`;
+  }
+  if(st.note){ s+=`<text x="${W-10}" y="${y+5}" text-anchor="end" fill="#8d8c85" font-size="12">${esc(st.note)}</text>`; }
+ });
+ s+=`</svg>`;
+ el.innerHTML=s;
+}
+
+const C={p:"#c3c2b7", v:"#d55181", z:"#2fb4e9", m:"#9085e9", o:"#1fae79"};
+seq($("#seq1"),
+ [{n:"📞 Caller",c:C.p},{n:"Voice AI (Mark)",c:C.v},{n:"Z360 + gateway",c:C.z},{n:"integrations-mcp",c:C.m},{n:"Open Dental",c:C.o}],
+ [
+  {f:0,t:1,l:"\"I'd like to book a first visit\""},
+  {self:1,l:"Reads policy + intake-and-booking + new-patient-intake"},
+  {f:1,t:3,l:"get_practice_info → types, providers, timezone",code:1},
+  {f:3,t:4,l:"GET appointmenttypes, providers, preferences"},
+  {f:1,t:3,l:"find_open_slots (while caller is still talking)",code:1, band:"#2fb4e9"},
+  {f:4,t:1,l:"real open times only",r:1},
+  {f:1,t:0,l:"\"Friday at 12 with Dr. Albert. Is that right?\""},
+  {f:0,t:1,l:"\"Yes\""},
+  {f:1,t:3,l:"create_patient → patient #23",code:1},
+  {f:1,t:3,l:"book_appointment + operation_id",code:1, band:"#9085e9"},
+  {self:3,l:"Claim ID · check overlaps · POST · read back"},
+  {f:4,t:1,l:"status: booked (appointment #, time, provider)",r:1},
+  {f:1,t:3,l:"record_referral_source · log_communication [Z360]",code:1},
+  {f:1,t:2,l:"Tickets: Appointment Request, Referral Source"},
+  {f:2,t:0,l:"SMS confirmation + new-patient forms link"},
+ ],{rowH:38});
+
+seq($("#tenant"),
+ [{n:"Practice A token",c:C.z},{n:"integrations-mcp",c:C.m},{n:"Open Dental",c:C.o}],
+ [
+  {f:0,t:1,l:"Bearer token A"},
+  {self:1,l:"sha256(A) → connection A"},
+  {f:1,t:2,l:"dev key + A's customer key"},
+  {f:2,t:1,l:"A's data only",r:1},
+  {f:0,t:1,l:"unknown / revoked token"},
+  {f:1,t:0,l:"401, nothing called",r:1},
+ ],{w:900,rowH:46});
+
+seq($("#swap"),
+ [{n:"Z360 org",c:C.z},{n:"Gateway",c:C.v},{n:"integrations-mcp",c:C.m},{n:"Open Dental API",c:C.o},{n:"Practice server",c:"#c98500"}],
+ [
+  {f:0,t:1,l:"same skills · same 24 tools"},
+  {f:1,t:2,l:"same private endpoint /opendental/mcp"},
+  {self:2,l:"Token picks the connection: sandbox → FGD"},
+  {f:2,t:3,l:"developer key + practice customer key"},
+  {f:3,t:4,l:"eConnector: our VM today → FGD office tomorrow"},
+ ],{rowH:40});
+
+/* ----- operation_id state machine (SVG) ----- */
+(function(){
+ const W=760,H=360;
+ const box=(x,y,w,h,t,sub,c)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#1f2329" stroke="${c}" stroke-width="2"/><text x="${x+w/2}" y="${y+h/2-(sub?4:-5)}" text-anchor="middle" fill="#f0efec" font-size="16" font-weight="700">${t}</text>${sub?`<text x="${x+w/2}" y="${y+h/2+15}" text-anchor="middle" fill="#c3c2b7" font-size="12">${sub}</text>`:''}`;
+ const ar=(x1,y1,x2,y2,l,c="#8d8c85",lx,ly,dash)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="2" ${dash?'stroke-dasharray="6 4"':''} marker-end="url(#smA)"/><text x="${lx??(x1+x2)/2}" y="${ly??(y1+y2)/2-6}" text-anchor="middle" fill="#c3c2b7" font-size="12.5">${l}</text>`;
+ let s=`<svg viewBox="0 0 ${W} ${H}"><defs><marker id="smA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8d8c85"/></marker></defs>`;
+ s+=`<text x="10" y="22" fill="#f0efec" font-size="15" font-weight="700">What the server remembers per operation_id</text>`;
+ s+=box(20,140,150,64,"Write arrives","with operation_id","#2fb4e9");
+ s+=box(270,140,170,64,"in progress","claim held · 3 min","#fab219");
+ s+=box(560,50,180,64,"done","result kept 7 days","#0ca30c");
+ s+=box(560,230,180,64,"released","nothing was written","#8d8c85");
+ s+=ar(170,172,268,172,"first time");
+ s+=ar(440,160,558,88,"Open Dental confirmed",undefined,470,100);
+ s+=ar(440,186,558,258,"failed, no write",undefined,480,246);
+ // retries
+ s+=`<rect x="20" y="300" width="720" height="48" rx="10" fill="#181b20" stroke="#343a44"/>`;
+ s+=`<text x="36" y="320" fill="#f0efec" font-size="13" font-weight="700">Same ID again?</text>`;
+ s+=`<text x="36" y="338" fill="#c3c2b7" font-size="12.5">done → saved result replayed · in progress → "still in progress" · other inputs → rejected · released → runs fresh</text>`;
+ s+=`<text x="20" y="70" fill="#8d8c85" font-size="12.5">Staging: in memory</text><text x="20" y="88" fill="#8d8c85" font-size="12.5">Beta: Redis (survives restarts)</text>`;
+ s+=`</svg>`;
+ $("#sm").innerHTML=s;
+})();
+
+
+
+/* ================= navigation ================= */
+const slides=[...document.querySelectorAll(".slide")];
+slides.forEach((s,i)=>{ const n=s.querySelector(".num"); if(n) n.textContent=`${i+1} / ${slides.length}`; });
+$("#dots").innerHTML=slides.map((s,i)=>`<a href="#" data-i="${i}"><span>${i+1}. ${s.dataset.title}</span></a>`).join("");
+const dots=[...document.querySelectorAll("#dots a")];
+let cur=0;
+const go=i=>{cur=Math.max(0,Math.min(slides.length-1,i));slides[cur].scrollIntoView({behavior:"smooth"});};
+dots.forEach(d=>d.onclick=e=>{e.preventDefault();go(+d.dataset.i)});
+document.querySelectorAll("[data-go]").forEach(a=>a.onclick=()=>{const t=document.getElementById(a.dataset.go);go(slides.indexOf(t))});
+const io=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){cur=slides.indexOf(e.target);dots.forEach((d,i)=>d.classList.toggle("on",i===cur));$("#progress").style.width=((cur+1)/slides.length*100)+"%";}}),{threshold:.55});
+slides.forEach(s=>io.observe(s));
+/* shrink any slide that is taller than the window, so each fits one screen */
+function fit(){
+ slides.forEach(s=>{
+  const b=s.querySelector(".body"); b.style.zoom=1;
+  const cs=getComputedStyle(s), pad=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
+  const avail=innerHeight-pad, h=b.scrollHeight;
+  if(h>avail) b.style.zoom=Math.max(.55,avail/h);
+ });
+}
+fit(); addEventListener("resize",fit);
+/* index.html?only=5 renders just slide 5 (for screenshots) */
+const only=new URLSearchParams(location.search).get("only");
+if(only) slides.forEach((s,i)=>{ if(i!==+only-1) s.style.display="none"; });
+/* deep link: index.html#s5 opens slide 5 */
+const m=location.hash.match(/^#s(\d+)$/);
+if(m){document.documentElement.style.scrollBehavior="auto";slides[Math.min(slides.length,+m[1])-1].scrollIntoView();}
+document.addEventListener("keydown",e=>{
+ if($("#lightbox").style.display==="flex"){ if(e.key==="Escape") $("#lightbox").style.display="none"; return; }
+ if(["ArrowDown","ArrowRight","PageDown"," "].includes(e.key)){e.preventDefault();go(cur+1)}
+ else if(["ArrowUp","ArrowLeft","PageUp"].includes(e.key)){e.preventDefault();go(cur-1)}
+ else if(e.key==="Home"){go(0)} else if(e.key==="End"){go(slides.length-1)}
+ else if(e.key==="f"||e.key==="F"){ document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); }
+});
+/* lightbox */
+document.addEventListener("click",e=>{
+ const s=e.target.closest("[data-zoom]");
+ if(s){ const img=s.querySelector("img"); if(!img.src) return; $("#lightbox img").src=img.src; $("#lightbox").style.display="flex"; }
+ else if(e.target.closest("#lightbox")) $("#lightbox").style.display="none";
+});
+</script>
+</body>
+</html>
